@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {DataTypes} from "./utils/DataTypes.sol";
+
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
