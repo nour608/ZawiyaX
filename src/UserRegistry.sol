@@ -17,8 +17,8 @@ contract UserRegistry is DataTypes, AccessControl, Pausable {
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    constructor(address defaultAdmin) {
-        grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
+    constructor() {
+        grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         grantRole(ADMIN_ROLE, msg.sender);
     }
 

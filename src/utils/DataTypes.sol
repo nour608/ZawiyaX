@@ -30,10 +30,15 @@ interface DataTypes {
 
     struct Job {
         address client;
-        string title;
-        string description;
         uint256 budget;
         uint256 deadline;
-        uint256 status;
+        JobStatus status; // by default, it is Pending
+        string ipfsCID; // for storing job titels, description, requirements, etc.
+    }
+
+    struct Proposals {
+        address freelancer;
+        uint256 bid;
+        string ipfsCID; // for storing the freelancer's proposal
     }
 }
