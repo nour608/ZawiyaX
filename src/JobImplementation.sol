@@ -1,3 +1,25 @@
+// Layout of Contract:
+// version
+// imports
+// errors
+// interfaces, libraries, contracts
+// Type declarations
+// State variables
+// Events
+// Modifiers
+// Functions
+
+// Layout of Functions:
+// constructor
+// receive function (if exists)
+// fallback function (if exists)
+// external
+// public
+// internal
+// private
+// internal & private view & pure functions
+// external & public view & pure functions
+
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.24;
 
@@ -19,6 +41,10 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
 
     uint256 public jobId;
     mapping(uint256 => Job) public jobs;
+    mapping(uint256 => mapping(address => uint256)) public guaranteeAmounts; // tracking guarantee amounts per job and freelancer
+
+    uint256 public bias = 10000; // 10000 is 100%
+    uint256 public guaranteePercentage = 500; // Percentage of the budget to be paid as guarantee of Commitment
 
     event ProposalSubmitted(uint256 jobId, address freelancer);
     event ContractPaused(address admin, uint256 timestamp);
@@ -68,14 +94,14 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
         external
         clientOnly
     {
-        // Checks
+        // CHECKS
         require(userRegistry.getProfile(_freelancer).isFreelancer, "Freelancer does not exist");
         require(_deadline > block.timestamp, "Invalid deadline");
         require(currencyManager.isCurrencyWhitelisted(_token), "Token is not whitelisted");
-        // Effects
+        // EFFECTS
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _budget);
 
-        // Interactions
+        // INTERACTIONS
         jobs[jobId] = Job({
             client: msg.sender,
             budget: _budget,
@@ -97,8 +123,21 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
      * @notice the proposal will be encrypted and stored on the ipfs, the _EncyptedIpfsCID param may be can be string or bytes32 not sure yet
      */
     function submitProposal(uint256 _jobId, bytes32 _EncyptedIpfsCID) external freelancersOnly {
+        // CHECKS
         require(jobs[_jobId].status == JobStatus.Pending, "Job is not pending");
+
+        // EFFECTS
+        // Calculate the guarantee amount
+        uint256 guaranteeAmount = (jobs[_jobId].budget * guaranteePercentage) / bias; // 500 is 5%
+        // Transfer the guarantee amount from the freelancer to the contract
+        IERC20(jobs[_jobId].token).safeTransferFrom(msg.sender, address(this), guaranteeAmount);
+
+        // INTERACTIONS
+        // Track the guarantee amount
+        guaranteeAmounts[_jobId][msg.sender] += guaranteeAmount;
+        // submit the proposal
         jobs[_jobId].proposals.push(Proposals({freelancer: msg.sender, EncryptedIpfsCID: _EncyptedIpfsCID}));
+
         emit ProposalSubmitted(_jobId, msg.sender);
     }
 
@@ -120,5 +159,18 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
     function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
         emit ContractUnpaused(msg.sender, block.timestamp);
+    }
+    /////////////////////////////
+    ////// GETTERS & VIEWS //////
+    /////////////////////////////
+
+    /**
+     * @dev function to retrieve the guarantee amount paid by a freelancer for a specific job
+     * @param _jobId the id of the job
+     * @param _freelancer the address of the freelancer
+     * @return the guarantee amount paid by the freelancer for the job
+     */
+    function getGuaranteeAmount(uint256 _jobId, address _freelancer) private view returns (uint256) {
+        return guaranteeAmounts[_jobId][_freelancer];
     }
 }
