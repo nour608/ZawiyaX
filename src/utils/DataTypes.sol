@@ -19,7 +19,7 @@ interface DataTypes {
         uint256 totalJobsCancelled;
         bool isFreelancer;
         bool isClient;
-        string ipfsCID; // for storing user's profile picture, skills, description, etc.
+        bytes32 ipfsCID; // for storing user's profile picture, skills, description, etc.
     }
 
     struct TrustedJudge {
@@ -31,14 +31,17 @@ interface DataTypes {
     struct Job {
         address client;
         uint256 budget;
+        address token;
         uint256 deadline;
         JobStatus status; // by default, it is Pending
-        string ipfsCID; // for storing job titels, description, requirements, etc.
+        bytes32 ipfsCID; // for storing job titel, description, requirements, etc.
+        address freelancer;
+        Proposals[] proposals; //  i think this should be an array of bytes32
     }
 
     struct Proposals {
         address freelancer;
-        uint256 bid;
-        string ipfsCID; // for storing the freelancer's proposal
+        // uint256 bid; // this will be of chain will be on the EncryptedIpfsCID
+        bytes32 EncryptedIpfsCID; // for storing the freelancer's proposal
     }
 }

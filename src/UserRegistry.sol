@@ -7,15 +7,15 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract UserRegistry is DataTypes, AccessControl, Pausable {
-    event ProfileCreated(string name, address walletAddress, bool isFreelancer, bool isClient, string ipfsCID);
-    event ProfileUpdated(address walletAddress, string newIpfsCID, uint256 timestamp);
-    event ContractPaused(address admin, uint256 timestamp);
-    event ContractUnpaused(address admin, uint256 timestamp);
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     mapping(address => Profile) public profile;
     mapping(string => bool) private usedNames;
 
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    event ProfileCreated(string name, address walletAddress, bool isFreelancer, bool isClient, string ipfsCID);
+    event ProfileUpdated(address walletAddress, string newIpfsCID, uint256 timestamp);
+    event ContractPaused(address admin, uint256 timestamp);
+    event ContractUnpaused(address admin, uint256 timestamp);
 
     constructor() {
         grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -28,7 +28,7 @@ contract UserRegistry is DataTypes, AccessControl, Pausable {
         address _walletAddress,
         bool _isFreelancer,
         bool _isClient,
-        string memory _ipfsCID
+        bytes32 _ipfsCID
     ) external whenNotPaused {
         require(msg.sender == _walletAddress, "Only the owner can create a profile");
         require(!usedNames[_name], "Name already taken");
@@ -55,7 +55,7 @@ contract UserRegistry is DataTypes, AccessControl, Pausable {
     }
 
     // Function to update a profile
-    function updateProfile(string memory _newIpfsCID) external whenNotPaused {
+    function updateProfile(bytes memory _newIpfsCID) external whenNotPaused {
         require(profile[msg.sender].walletAddress != address(0), "Profile does not exist");
 
         // Update the IPFS CID
