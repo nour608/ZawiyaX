@@ -41,9 +41,17 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
 
     uint256 public jobId;
     mapping(uint256 => Job) public jobs;
-    mapping(uint256 => mapping(address => uint256)) public guaranteeAmounts; // tracking guarantee amounts per job and freelancer
 
-    uint256 public bias = 10000; // 10000 is 100%
+    // tracking guarantee amounts per job and freelancer
+    mapping(uint256 => mapping(address => uint256)) public guaranteeAmounts;
+
+    // Mapping from job ID to a mapping of freelancer address to Proposal
+    mapping(uint256 => mapping(address => Proposal)) public jobProposals;
+
+    // Mapping to track if a freelancer has submitted a proposal for a job
+    mapping(uint256 => mapping(address => bool)) public hasSubmittedProposal;
+
+    uint256 public BASIS_POINTS = 10000; // 10000 is 100%
     uint256 public guaranteePercentage = 500; // Percentage of the budget to be paid as guarantee of Commitment
 
     event ProposalSubmitted(uint256 jobId, address freelancer);
@@ -109,8 +117,7 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
             deadline: _deadline,
             status: JobStatus.Pending,
             ipfsCID: _ipfs,
-            freelancer: _freelancer,
-            proposals: new Proposals[](0)
+            freelancer: _freelancer
         });
 
         jobId++;
@@ -125,31 +132,41 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
     function submitProposal(uint256 _jobId, bytes32 _EncyptedIpfsCID) external freelancersOnly {
         // CHECKS
         require(jobs[_jobId].status == JobStatus.Pending, "Job is not pending");
+        require(!hasSubmittedProposal[_jobId][msg.sender], "Freelancer has already submitted a proposal for this job");
 
         // EFFECTS
         // Calculate the guarantee amount
-        uint256 guaranteeAmount = (jobs[_jobId].budget * guaranteePercentage) / bias; // 500 is 5%
+        uint256 guaranteeAmount = (jobs[_jobId].budget * guaranteePercentage) / BASIS_POINTS; // 500 is 5%
         // Transfer the guarantee amount from the freelancer to the contract
         IERC20(jobs[_jobId].token).safeTransferFrom(msg.sender, address(this), guaranteeAmount);
 
         // INTERACTIONS
+
         // Track the guarantee amount
         guaranteeAmounts[_jobId][msg.sender] += guaranteeAmount;
-        // submit the proposal
-        jobs[_jobId].proposals.push(Proposals({freelancer: msg.sender, EncryptedIpfsCID: _EncyptedIpfsCID}));
+
+        // Create the proposal
+        Proposal memory newProposal =
+            Proposal({freelancer: msg.sender, EncryptedIpfsCID: _EncyptedIpfsCID, accepted: false});
+
+        // Store the proposal in the mapping
+        jobProposals[_jobId][msg.sender] = newProposal;
+
+        // Mark that the freelancer has submitted a proposal
+        hasSubmittedProposal[_jobId][msg.sender] = true;
 
         emit ProposalSubmitted(_jobId, msg.sender);
     }
 
-    function acceptProposal(uint256 _jobId) external JobOwnerOnly(_jobId) {}
+    function acceptProposal(uint256 _jobId, address _freelancer) external JobOwnerOnly(_jobId) {}
 
-    function approveWork(bool approve, uint256 _jobId) external clientOrFreelancerOnly(_jobId) {}
+    function approveWork(uint256 _jobId, bool approve) external clientOrFreelancerOnly(_jobId) {}
 
     function cancelJob(uint256 _jobId) external JobOwnerOnly(_jobId) {}
 
     function Dispute(uint256 _jobId) external clientOrFreelancerOnly(_jobId) {}
 
-    function rateUser(uint256 rating, uint256 _jobId) external JobOwnerOnly(_jobId) {}
+    function rateUser(uint256 _jobId, uint256 rating) external JobOwnerOnly(_jobId) {}
 
     function pause() external onlyRole(ADMIN_ROLE) {
         _pause();
@@ -166,8 +183,6 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
 
     /**
      * @dev function to retrieve the guarantee amount paid by a freelancer for a specific job
-     * @param _jobId the id of the job
-     * @param _freelancer the address of the freelancer
      * @return the guarantee amount paid by the freelancer for the job
      */
     function getGuaranteeAmount(uint256 _jobId, address _freelancer) private view returns (uint256) {

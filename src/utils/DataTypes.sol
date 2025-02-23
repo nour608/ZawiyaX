@@ -36,12 +36,12 @@ interface DataTypes {
         JobStatus status; // by default, it is Pending
         bytes32 ipfsCID; // for storing job titel, description, requirements, etc.
         address freelancer;
-        Proposals[] proposals; //  i think this should be an array of bytes32
     }
 
-    struct Proposals {
+    struct Proposal {
         address freelancer;
         // uint256 bid; // this will be of chain will be on the EncryptedIpfsCID
         bytes32 EncryptedIpfsCID; // for storing the freelancer's proposal
+        bool accepted; // false by default
     }
 }
