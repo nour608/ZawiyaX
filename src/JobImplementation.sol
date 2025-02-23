@@ -96,14 +96,9 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
      * @param _token the token address to be used for the payment
      * @param _deadline the deadline of the job
      * @param _ipfs the ipfs hash of the job description
-     * @param _freelancer the address of the freelancer to work on the job
      */
-    function createJob(uint256 _budget, address _token, uint256 _deadline, bytes32 _ipfs, address _freelancer)
-        external
-        clientOnly
-    {
+    function createJob(uint256 _budget, address _token, uint256 _deadline, bytes32 _ipfs) external clientOnly {
         // CHECKS
-        require(userRegistry.getProfile(_freelancer).isFreelancer, "Freelancer does not exist");
         require(_deadline > block.timestamp, "Invalid deadline");
         require(currencyManager.isCurrencyWhitelisted(_token), "Token is not whitelisted");
         // EFFECTS
@@ -117,7 +112,7 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
             deadline: _deadline,
             status: JobStatus.Pending,
             ipfsCID: _ipfs,
-            freelancer: _freelancer
+            freelancer: address(0)
         });
 
         jobId++;
@@ -158,7 +153,24 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
         emit ProposalSubmitted(_jobId, msg.sender);
     }
 
-    function acceptProposal(uint256 _jobId, address _freelancer) external JobOwnerOnly(_jobId) {}
+    /**
+     * @dev function to accept a proposal for a job, only clients can accept proposals for their jobs or assign a freelancer to the job.
+     * @param _jobId the id of the job
+     * @param _freelancer the address of the freelancer to accept the proposal
+     */
+    function acceptProposal(uint256 _jobId, address _freelancer) external JobOwnerOnly(_jobId) {
+        // CHECKS
+        require(jobs[_jobId].status == JobStatus.Pending, "Job is not pending");
+        require(userRegistry.getProfile(_freelancer).isFreelancer, "Freelancer does not exist");
+        require(hasSubmittedProposal[_jobId][_freelancer], "Freelancer has not submitted a proposal for this job");
+        require(_freelancer != address(0), "Invalid freelancer address");
+
+        // INTERACTIONS
+        jobs[_jobId].freelancer = _freelancer;
+        jobs[_jobId].status = JobStatus.InProgress;
+        // mark the proposal as accepted
+        jobProposals[_jobId][_freelancer].accepted = true;
+    }
 
     function approveWork(uint256 _jobId, bool approve) external clientOrFreelancerOnly(_jobId) {}
 

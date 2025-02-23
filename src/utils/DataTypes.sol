@@ -40,7 +40,6 @@ interface DataTypes {
 
     struct Proposal {
         address freelancer;
-        // uint256 bid; // this will be of chain will be on the EncryptedIpfsCID
         bytes32 EncryptedIpfsCID; // for storing the freelancer's proposal
         bool accepted; // false by default
     }
