@@ -28,6 +28,10 @@ interface DataTypes {
         uint256 Reputation;
     }
 
+    ///////////////////
+    // Job DataTypes //
+    ///////////////////
+
     struct Job {
         address client;
         uint256 budget;
@@ -36,6 +40,8 @@ interface DataTypes {
         JobStatus status; // by default, it is Pending
         bytes32 ipfsCID; // for storing job titel, description, requirements, etc.
         address freelancer;
+        bool FreelancerApprove;
+        bool ClientApprove;
     }
 
     struct Proposal {

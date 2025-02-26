@@ -52,11 +52,12 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
     mapping(uint256 => mapping(address => bool)) public hasSubmittedProposal;
 
     uint256 public BASIS_POINTS = 10000; // 10000 is 100%
-    uint256 public guaranteePercentage = 500; // Percentage of the budget to be paid as guarantee of Commitment
+    uint256 public guaranteePercentage = 500; // 500 is 5% , Percentage of the budget to be paid as guarantee of Commitment
 
     event ProposalSubmitted(uint256 jobId, address freelancer);
     event ContractPaused(address admin, uint256 timestamp);
     event ContractUnpaused(address admin, uint256 timestamp);
+    event JobCompleted(uint256 jobId, uint256 timestamp);
 
     modifier freelancersOnly() {
         require(userRegistry.getProfile(msg.sender).isFreelancer, "Only freelancers can submit proposals");
@@ -112,7 +113,9 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
             deadline: _deadline,
             status: JobStatus.Pending,
             ipfsCID: _ipfs,
-            freelancer: address(0)
+            freelancer: address(0),
+            FreelancerApprove: false,
+            ClientApprove: false
         });
 
         jobId++;
@@ -172,9 +175,50 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
         jobProposals[_jobId][_freelancer].accepted = true;
     }
 
-    function approveWork(uint256 _jobId, bool approve) external clientOrFreelancerOnly(_jobId) {}
+    /**
+     * @dev function to assign a freelancer to a job, only clients can assign freelancers to their jobs,
+     * the client can assign anyone he want so he can also benefits from the mechanism of the protocol.
+     * @notice the garantuee amount will not be paid in this case, so will be take care of that in the withdraw/distribute function.
+     * @param _jobId the id of the job
+     * @param _freelancer the address of the freelancer to assign to the job
+     */
+    function assignFreelancer(uint256 _jobId, address _freelancer) external JobOwnerOnly(_jobId) {
+        // CHECKS
+        require(jobs[_jobId].status == JobStatus.Pending, "Job is not pending");
+        require(userRegistry.getProfile(_freelancer).isFreelancer, "Freelancer does not exist");
+        require(_freelancer != address(0), "Invalid freelancer address");
 
-    function cancelJob(uint256 _jobId) external JobOwnerOnly(_jobId) {}
+        // INTERACTIONS
+        jobs[_jobId].freelancer = _freelancer;
+        jobs[_jobId].status = JobStatus.InProgress;
+    }
+
+    /**
+     * @dev function to approve the work done by the freelancer, only clients or freelancers can approve if the work done or not.
+     * @param _jobId the id of the job
+     * @param approve a boolean to approve or disapprove the work done by the freelancer
+     */
+    function approveWork(uint256 _jobId, bool approve) external clientOrFreelancerOnly(_jobId) {
+        // CHECKS
+        require(jobs[_jobId].status == JobStatus.InProgress, "Job is not in progress");
+
+        // INTERACTIONS
+        if (msg.sender == jobs[_jobId].client) {
+            jobs[_jobId].ClientApprove = approve;
+        } else if (msg.sender == jobs[_jobId].freelancer) {
+            jobs[_jobId].FreelancerApprove = approve;
+        }
+
+        if (jobs[_jobId].ClientApprove && jobs[_jobId].FreelancerApprove) {
+            jobs[_jobId].status = JobStatus.Completed;
+            emit JobCompleted(_jobId, block.timestamp);
+        }
+    }
+
+    function cancelJob(uint256 _jobId) external JobOwnerOnly(_jobId) {
+        // CHECKS
+        require(jobs[_jobId].status == JobStatus.Pending, "Job is not pending");
+    }
 
     function Dispute(uint256 _jobId) external clientOrFreelancerOnly(_jobId) {}
 
