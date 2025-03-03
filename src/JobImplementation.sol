@@ -244,4 +244,8 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
     function getGuaranteeAmount(uint256 _jobId, address _freelancer) private view returns (uint256) {
         return guaranteeAmounts[_jobId][_freelancer];
     }
+
+    function getProposal(uint256 _jobId, address _freelancer) external view returns (Proposal memory) {
+        return jobProposals[_jobId][_freelancer];
+    }
 }
