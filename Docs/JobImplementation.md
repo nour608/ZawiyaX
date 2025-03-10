@@ -28,4 +28,3 @@ the job implementation smart contract designed to manage create/applying job mec
 ### **Notes**
 
 - The contract uses basis points for percentage calculations (10000 = 100%).
-- Considering adding a function `assignExternalFreelancer()` to allow clients to assign anyone they want, enabling them to benefit from the protocol's mechanism.

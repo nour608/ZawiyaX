@@ -12,7 +12,7 @@ interface DataTypes {
     struct Profile {
         string name; // unique and immutable
         address walletAddress; // unique and immutable
-        uint256 Reputation; // can be increased or decreased based on the user's activity
+        uint256 Reputation; // rating out of 5
         uint256 balance;
         uint256 totalEarnings;
         uint256 totalJobsCompleted;
@@ -40,6 +40,7 @@ interface DataTypes {
         JobStatus status; // by default, it is Pending
         bytes32 ipfsCID; // for storing job titel, description, requirements, etc.
         address freelancer;
+        Proposal[] jobProposals;
         bool FreelancerApprove;
         bool ClientApprove;
     }

@@ -40,16 +40,21 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     uint256 public jobId;
+
+    // mapping to store the jobs
     mapping(uint256 => Job) public jobs;
 
     // tracking guarantee amounts per job and freelancer
     mapping(uint256 => mapping(address => uint256)) public guaranteeAmounts;
 
     // Mapping from job ID to a mapping of freelancer address to Proposal
-    mapping(uint256 => mapping(address => Proposal)) public jobProposals;
+    // mapping(uint256 => mapping(address => Proposal)) public jobProposals;
 
     // Mapping to track if a freelancer has submitted a proposal for a job
     mapping(uint256 => mapping(address => bool)) public hasSubmittedProposal;
+
+    // Mapping to track if a job has been disputed
+    mapping(uint256 => bool) public hasDisputed;
 
     uint256 public BASIS_POINTS = 10000; // 10000 is 100%
     uint256 public guaranteePercentage = 500; // 500 is 5% , Percentage of the budget to be paid as guarantee of Commitment
@@ -57,7 +62,10 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
     event ProposalSubmitted(uint256 jobId, address freelancer);
     event ContractPaused(address admin, uint256 timestamp);
     event ContractUnpaused(address admin, uint256 timestamp);
+    event JobCancelled(uint256 jobId, uint256 timestamp);
+    event JobInProgress(uint256 jobId, address freelancer, uint256 timestamp);
     event JobCompleted(uint256 jobId, uint256 timestamp);
+    event Disputed(uint256 jobId, uint256 timestamp);
 
     modifier freelancersOnly() {
         require(userRegistry.getProfile(msg.sender).isFreelancer, "Only freelancers can submit proposals");
@@ -114,6 +122,7 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
             status: JobStatus.Pending,
             ipfsCID: _ipfs,
             freelancer: address(0),
+            jobProposals: new Proposal[](0),
             FreelancerApprove: false,
             ClientApprove: false
         });
@@ -125,7 +134,7 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
      * @dev function to submit a proposal for a job, only freelancers can submit proposals
      * @param _jobId the id of the job
      * @param _EncyptedIpfsCID the ipfs hash of the proposal
-     * @notice the proposal will be encrypted and stored on the ipfs, the _EncyptedIpfsCID param may be can be string or bytes32 not sure yet
+     * @notice the proposal will be encrypted (to the clinet address) and stored on the ipfs, the _EncyptedIpfsCID param may be can be string or bytes32 not sure yet
      */
     function submitProposal(uint256 _jobId, bytes32 _EncyptedIpfsCID) external freelancersOnly {
         // CHECKS
@@ -143,12 +152,10 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
         // Track the guarantee amount
         guaranteeAmounts[_jobId][msg.sender] += guaranteeAmount;
 
-        // Create the proposal
-        Proposal memory newProposal =
-            Proposal({freelancer: msg.sender, EncryptedIpfsCID: _EncyptedIpfsCID, accepted: false});
-
-        // Store the proposal in the mapping
-        jobProposals[_jobId][msg.sender] = newProposal;
+        // Create the proposal and store it in the job's proposals array
+        jobs[_jobId].jobProposals.push(
+            Proposal({freelancer: msg.sender, EncryptedIpfsCID: _EncyptedIpfsCID, accepted: false})
+        );
 
         // Mark that the freelancer has submitted a proposal
         hasSubmittedProposal[_jobId][msg.sender] = true;
@@ -159,20 +166,22 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
     /**
      * @dev function to accept a proposal for a job, only clients can accept proposals for their jobs or assign a freelancer to the job.
      * @param _jobId the id of the job
-     * @param _freelancer the address of the freelancer to accept the proposal
+     * @param index the index of the proposal in the jobProposals array of the job
      */
-    function acceptProposal(uint256 _jobId, address _freelancer) external JobOwnerOnly(_jobId) {
+    function acceptProposal(uint256 _jobId, uint256 index) external JobOwnerOnly(_jobId) {
         // CHECKS
         require(jobs[_jobId].status == JobStatus.Pending, "Job is not pending");
-        require(userRegistry.getProfile(_freelancer).isFreelancer, "Freelancer does not exist");
-        require(hasSubmittedProposal[_jobId][_freelancer], "Freelancer has not submitted a proposal for this job");
-        require(_freelancer != address(0), "Invalid freelancer address");
+        require(index < jobs[_jobId].jobProposals.length + 1, "Invalid proposal index");
 
-        // INTERACTIONS
-        jobs[_jobId].freelancer = _freelancer;
+        // EFFECTS
+        // Assign the freelancer to the job
+        jobs[_jobId].freelancer = jobs[_jobId].jobProposals[index].freelancer;
         jobs[_jobId].status = JobStatus.InProgress;
+
         // mark the proposal as accepted
-        jobProposals[_jobId][_freelancer].accepted = true;
+        jobs[_jobId].jobProposals[index].accepted = true;
+
+        emit JobInProgress(_jobId, jobs[jobId].freelancer, block.timestamp);
     }
 
     /**
@@ -188,7 +197,7 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
         require(userRegistry.getProfile(_freelancer).isFreelancer, "Freelancer does not exist");
         require(_freelancer != address(0), "Invalid freelancer address");
 
-        // INTERACTIONS
+        // EFFECTS
         jobs[_jobId].freelancer = _freelancer;
         jobs[_jobId].status = JobStatus.InProgress;
     }
@@ -202,7 +211,7 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
         // CHECKS
         require(jobs[_jobId].status == JobStatus.InProgress, "Job is not in progress");
 
-        // INTERACTIONS
+        // EFFECTS
         if (msg.sender == jobs[_jobId].client) {
             jobs[_jobId].ClientApprove = approve;
         } else if (msg.sender == jobs[_jobId].freelancer) {
@@ -218,11 +227,37 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
     function cancelJob(uint256 _jobId) external JobOwnerOnly(_jobId) {
         // CHECKS
         require(jobs[_jobId].status == JobStatus.Pending, "Job is not pending");
+
+        // EFFECTS
+        jobs[_jobId].status = JobStatus.Cancelled;
+
+        emit JobCancelled(_jobId, block.timestamp);
     }
 
-    function Dispute(uint256 _jobId) external clientOrFreelancerOnly(_jobId) {}
+    function Dispute(uint256 _jobId) external clientOrFreelancerOnly(_jobId) {
+        // CHECKS
+        require(jobs[_jobId].status == JobStatus.InProgress, "Job is not in progress");
 
-    function rateUser(uint256 _jobId, uint256 rating) external JobOwnerOnly(_jobId) {}
+        // EFFECTS
+        hasDisputed[_jobId] = true;
+
+        emit Disputed(_jobId, block.timestamp);
+    }
+
+    /**
+     * @dev function to rate the user at the end of the job/task.
+     * @param _jobId the id of the job
+     * @param rating rate from 0 to 5
+     */
+    function rateUser(uint256 _jobId, uint256 rating) external JobOwnerOnly(_jobId) {
+        // CHECKS
+        require(rating >= 0 && rating <= 5, "Rating must be between 0 and 5");
+        require(jobs[_jobId].status == JobStatus.Completed, "Job must be completed to rate");
+
+        // EFFECTS
+        // Update the freelancer's reputation in UserRegistry
+        userRegistry.updateReputation(jobs[_jobId].freelancer, rating);
+    }
 
     function pause() external onlyRole(ADMIN_ROLE) {
         _pause();
@@ -233,6 +268,7 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
         _unpause();
         emit ContractUnpaused(msg.sender, block.timestamp);
     }
+
     /////////////////////////////
     ////// GETTERS & VIEWS //////
     /////////////////////////////
@@ -245,7 +281,12 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
         return guaranteeAmounts[_jobId][_freelancer];
     }
 
-    function getProposal(uint256 _jobId, address _freelancer) external view returns (Proposal memory) {
-        return jobProposals[_jobId][_freelancer];
+    function getProposal(uint256 _jobId, uint256 index) external view returns (Proposal memory) {
+        return jobs[_jobId].jobProposals[index];
+    }
+
+    // the Proposals is encrypted to the client address, so only the client can view the proposals in the front-end
+    function getProposals(uint256 _jobId) external view returns (Proposal[] memory) {
+        return jobs[_jobId].jobProposals;
     }
 }

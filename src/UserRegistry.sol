@@ -8,12 +8,13 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract UserRegistry is DataTypes, AccessControl, Pausable {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    address private JobImplementation;
 
     mapping(address => Profile) public profile;
     mapping(string => bool) private usedNames;
 
-    event ProfileCreated(string name, address walletAddress, bool isFreelancer, bool isClient, string ipfsCID);
-    event ProfileUpdated(address walletAddress, string newIpfsCID, uint256 timestamp);
+    event ProfileCreated(string name, address walletAddress, bool isFreelancer, bool isClient, bytes32 ipfsCID);
+    event ProfileUpdated(address walletAddress, bytes32 newIpfsCID, uint256 timestamp);
     event ContractPaused(address admin, uint256 timestamp);
     event ContractUnpaused(address admin, uint256 timestamp);
 
@@ -55,7 +56,7 @@ contract UserRegistry is DataTypes, AccessControl, Pausable {
     }
 
     // Function to update a profile
-    function updateProfile(bytes memory _newIpfsCID) external whenNotPaused {
+    function updateProfile(bytes32 _newIpfsCID) external whenNotPaused {
         require(profile[msg.sender].walletAddress != address(0), "Profile does not exist");
 
         // Update the IPFS CID
@@ -66,6 +67,22 @@ contract UserRegistry is DataTypes, AccessControl, Pausable {
 
     function getProfile(address _walletAddress) external view returns (Profile memory) {
         return profile[_walletAddress];
+    }
+
+    function updateReputation(address _freelancer, uint256 rating) public whenNotPaused {
+        require(msg.sender == JobImplementation, "Only the Job contract can update the reputation");
+        require(profile[_freelancer].walletAddress != address(0), "Profile does not exist");
+
+        // Update the reputation
+        profile[_freelancer].Reputation = rating;
+    }
+
+    //////////////////////
+    /// Admin functions///
+    //////////////////////
+
+    function updateJobImplementation(address _newJobImplementation) external onlyRole(ADMIN_ROLE) {
+        JobImplementation = _newJobImplementation;
     }
 
     function pause() external onlyRole(ADMIN_ROLE) {
