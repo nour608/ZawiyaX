@@ -254,6 +254,9 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
         require(rating >= 0 && rating <= 5, "Rating must be between 0 and 5");
         require(jobs[_jobId].status == JobStatus.Completed, "Job must be completed to rate");
 
+        // not completed yet
+        // need a rating mechanism
+
         // EFFECTS
         // Update the freelancer's reputation in UserRegistry
         userRegistry.updateReputation(jobs[_jobId].freelancer, rating);

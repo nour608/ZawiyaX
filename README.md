@@ -1,66 +1,68 @@
-## Foundry
+# **ZawiyaX**
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Decentralized Services Marketplace Platform
 
-Foundry consists of:
+## Overview
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+A fully decentralized platform combining freelance services, education mentoring, and decentralized social features. Built on Ethereum with enhanced privacy and trust mechanisms, this platform enables:
 
-## Documentation
+- Clients to post jobs/tasks with escrow-based payments
+- Freelancers to bid on projects with commitment guarantees
+- Secure peer-to-peer communication (future decentralized chat)
+- Education-focused mentoring opportunities
+- Reputation system with on-chain tracking
+- Dispute resolution through trusted judges
 
-https://book.getfoundry.sh/
+## Key Features
 
-## Usage
+### 🛡️ Trust Architecture
 
-### Build
+- **Guarantee Mechanism**: 5% escrow from freelancers ensures commitment
+- **Reputation System**: On-chain rating tracking (0-5 scale)
+- **Dispute Handling**: Trusted judge system with escalation protocols
 
-```shell
-$ forge build
-```
+### 💼 Core Functionality
 
-### Test
+### 🔐 Privacy & Security
 
-```shell
-$ forge test
-```
+- IPFS-encrypted proposals (client-specific encryption) (ECIES)
+- Pausable contracts with emergency stops
+- Currency whitelisting system for payments
+- Non-custodial fund management
 
-### Format
+## Contract Structure
 
-```shell
-$ forge fmt
-```
+### 📦 Main Contracts
 
-### Gas Snapshots
+| Contract            | Description                                              |
+| ------------------- | -------------------------------------------------------- |
+| `JobImplementation` | Manages job lifecycle, proposals, payments, and disputes |
+| `UserRegistry`      | Handles user profiles, reputation, and role management   |
+| `Factory`           | Creates and manages job instances                        |
+| `DataTypes`         | Shared data structures and enums                         |
 
-```shell
-$ forge snapshot
-```
+### 🔗 Key Interactions
 
-### Anvil
+## Future Roadmap
 
-```shell
-$ anvil
-```
+### 🚀 Upcoming Features
 
-### Deploy
+- Decentralized Chat Protocol (E2E encrypted)
+- On-Chain Dispute Resolution DAO
+- Multi-chain Payment Support
+- Social Reputation Graph Integration
+- Education Module for Mentorship Programs
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+### ⚙️ Planned Improvements
 
-### Cast
+- Dynamic guarantee percentages based on reputation
+- Tiered judge selection system
+- Social media profile integration
+- Gasless meta-transactions support
 
-```shell
-$ cast <subcommand>
-```
+## License
 
-### Help
+---
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+> **Warning**  
+> This is experimental software. Use at your own risk. Smart contracts have not been audited.
