@@ -59,6 +59,8 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
     uint256 public BASIS_POINTS = 10000; // 10000 is 100%
     uint256 public guaranteePercentage = 500; // 500 is 5% , Percentage of the budget to be paid as guarantee of Commitment
 
+    ///////////////////// Events /////////////////////
+
     event ProposalSubmitted(uint256 jobId, address freelancer);
     event ContractPaused(address admin, uint256 timestamp);
     event ContractUnpaused(address admin, uint256 timestamp);
@@ -89,6 +91,8 @@ contract JobImplementation is DataTypes, AccessControl, Pausable {
         require(msg.sender == jobs[_jobId].client, "Only the client can perform this action");
         _;
     }
+
+    ///////////////////////////////////////////////////
 
     constructor(address _userRegistry, address _currencyManager) {
         currencyManager = ICurrencyManager(_currencyManager);
